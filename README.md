@@ -1,140 +1,48 @@
 # CSC4007 — Lab 3: Sequence Models with RNN + Weights & Biases
+## IMDB Core Lab + VietNewsSense Sequence Transfer Check
 
-## Giới thiệu bài thực hành
+Lab 3 tiếp tục trực tiếp từ Lab 2:
 
-Sau Lab 2, sinh viên đã xây dựng được một pipeline NLP cơ bản theo hướng:
+`BoW / TF-IDF baseline → token sequence → Embedding → RNN → evaluate → error analysis`
 
-- kiểm tra dữ liệu,
-- tiền xử lý văn bản,
-- biểu diễn đặc trưng bằng BoW/TF-IDF,
-- huấn luyện mô hình baseline kiểu Logistic Regression hoặc Linear SVM,
-- đánh giá bằng confusion matrix, macro-F1, và error analysis.
+Thiết kế bài lab gồm hai phần:
 
-Tuy nhiên, các mô hình ở Lab 2 xem văn bản chủ yếu như một tập đặc trưng rời rạc. Ở Lab 3, sinh viên chuyển sang học một hướng tiếp cận khác: mô hình hóa **chuỗi từ theo thứ tự xuất hiện**. Đây là lý do RNN xuất hiện trong bài lab này.
+- **Part A — Core Lab (IMDB):** huấn luyện Embedding + RNN, theo dõi bằng W&B và so sánh với baseline Lab 2.
+- **Part B — Vietnamese Sequence Transfer Check (VietNewsSense):** không train thêm một RNN đầy đủ; chỉ kiểm chứng tokenization làm thay đổi vocabulary, sequence length, UNK, truncation và padding như thế nào.
 
-RNN giúp mô hình khai thác thông tin tuần tự của câu, đặc biệt hữu ích khi ý nghĩa phụ thuộc vào vị trí và ngữ cảnh, ví dụ các hiện tượng phủ định, chuyển ý, hoặc sắc thái cảm xúc thay đổi dọc theo review. Lab này cũng là bước chuẩn bị cần thiết trước khi học LSTM/GRU và các mô hình chuỗi mạnh hơn ở các buổi sau.
+Mục tiêu là giữ IMDB làm trục so sánh kiến trúc, đồng thời tiếp tục case study tiếng Việt theo đúng câu hỏi của Bài 3: **pipeline có thể khái quát, nhưng representation của chuỗi phụ thuộc ngôn ngữ và tokenization.**
 
-Bên cạnh đó, sinh viên sẽ làm quen với **Weights & Biases (W&B)** để theo dõi thí nghiệm học máy một cách có hệ thống. Thay vì chỉ nhìn log ở terminal, sinh viên sẽ ghi lại hyperparameters, learning curves, và kết quả của nhiều lần chạy để so sánh rõ ràng hơn.
+## Mục tiêu
 
-## Mục tiêu bài thực hành
+Sau Lab 3, sinh viên cần:
 
-Sau bài lab này, sinh viên cần:
+1. Biểu diễn văn bản thành chuỗi token thay vì BoW/TF-IDF.
+2. Xây dựng và huấn luyện mô hình **Embedding + RNN** trên IMDB.
+3. Hiểu vocabulary, padding, `max_len`, embedding, hidden state, dropout và early stopping.
+4. Sử dụng W&B để theo dõi learning curves và so sánh run.
+5. So sánh baseline ML của Lab 2 với RNN của Lab 3.
+6. Phân tích ít nhất 10 lỗi IMDB.
+7. Thực hiện **VietNewsSense Sequence Transfer Check** với hai cách tokenization.
 
-1. Biểu diễn văn bản dưới dạng **chuỗi token** thay vì vector BoW/TF-IDF.
-2. Xây dựng và huấn luyện mô hình **Embedding + RNN** cho bài toán phân loại cảm xúc trên IMDB.
-3. Hiểu vai trò của các thành phần: vocabulary, padding, sequence length, embedding, hidden state, dropout, early stopping.
-4. Sử dụng **W&B** để theo dõi các lần chạy và quan sát learning curves.
-5. So sánh kết quả **baseline ML của Lab 2** với **RNN của Lab 3**.
-6. Phân tích lỗi mô hình trên các mẫu dự đoán sai, thay vì chỉ nhìn accuracy.
-
-## Mô tả ngắn về dataset
-
-Bài lab tiếp tục sử dụng **IMDB** cho phân loại cảm xúc review phim với hai nhãn:
-
-- `positive`
-- `negative`
-
-Dataset mặc định được tải qua thư viện `datasets` của Hugging Face.
-
-Trong phiên bản đã chỉnh của starter kit, đường chạy với IMDB giữ đúng tinh thần chuẩn hơn:
-
-- dùng **split gốc** của IMDB;
-- tạo **validation set từ train split**;
-- giữ **test split gốc** để đánh giá cuối cùng;
-- chỉ dùng `sample_imdb_tiny.csv` cho smoke test cục bộ và CI nhanh.
-
-## Giới thiệu ngắn về RNN
-
-Trong Lab 2, văn bản được đổi thành các vector đặc trưng tĩnh như BoW hoặc TF-IDF. Các cách này mạnh, đơn giản, và rất phù hợp làm baseline, nhưng gần như không biểu diễn trực tiếp được **thứ tự xuất hiện của từ**.
-
-RNN (Recurrent Neural Network) xử lý dữ liệu theo từng bước thời gian. Với bài toán text classification, mô hình đọc lần lượt từng token trong câu, cập nhật trạng thái ẩn, rồi dùng trạng thái đó để đưa ra dự đoán cuối cùng. Trong repo này, mô hình cơ bản gồm:
-
-- tầng `Embedding` để ánh xạ token ID sang vector dày đặc,
-- tầng `RNN` để xử lý chuỗi,
-- tầng phân loại để dự đoán nhãn đầu ra.
-
-Sinh viên cần đặc biệt chú ý các điểm sau:
-
-- **padding**: các câu phải có cùng độ dài trong một batch;
-- **max_len**: nếu quá ngắn thì mất thông tin, quá dài thì tốn chi phí và dễ nhiễu;
-- **dropout**: giúp giảm overfitting;
-- **early stopping**: dừng sớm khi mô hình không còn cải thiện trên validation set;
-- **seed**: cần cố định để kết quả có thể tái lập.
-
-## Giới thiệu ngắn về Weights & Biases (W&B)
-
-Weights & Biases là công cụ hỗ trợ theo dõi thí nghiệm học máy. Trong bài lab này, W&B được dùng để:
-
-- lưu lại hyperparameters của từng lần chạy;
-- theo dõi `train_loss`, `val_loss`, `val_accuracy`, `val_macro_f1` theo epoch;
-- so sánh nhiều run với nhau;
-- hỗ trợ sinh viên đọc learning curves và phát hiện overfitting.
-
-Repo hỗ trợ cả hai chế độ:
-
-- `online`: log lên tài khoản W&B;
-- `offline`: lưu log cục bộ, phù hợp khi không muốn đăng nhập hoặc khi chạy CI.
-
-## Nội dung thực hành
-
-### Chuẩn bị
-
-Sinh viên cần:
-
-- có tài khoản GitHub;
-- có môi trường Python/conda dùng cho học phần;
-- đã hoàn thành Lab 2 hoặc ít nhất có thể đọc và hiểu kết quả baseline ML ở Lab 2;
-- có tài khoản W&B nếu muốn log online.
-
-## Fork starter kit về GitHub cá nhân (BẮT BUỘC)
-
-Giảng viên đã chuẩn bị sẵn starter repo cho bài lab này. Sinh viên thực hiện:
-
-1. Mở repo starter kit của Lab 3.
-2. Bấm **Fork** để tạo bản sao về GitHub cá nhân.
-3. Sau đó repo của sinh viên sẽ có dạng:
-
-```text
-https://github.com/<username>/<repo-name>
-```
-
-## Clone repo về máy
-
-Mở **Anaconda Prompt** (Windows) hoặc **Terminal** (macOS/Linux), chạy:
-
-```bash
-git clone https://github.com/<username>/<repo-name>.git
-cd <repo-name>
-```
-
-### Kích hoạt môi trường
-
-```bash
-conda activate csc4007-nlp
-```
-
-hoặc nếu dùng `venv`:
+## Cài đặt
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate    # Windows: .venv\Scripts\activate
-```
-
-### Cài thư viện
-
-```bash
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-Nếu muốn log online với W&B:
+Nếu dùng W&B online:
 
 ```bash
 wandb login
 ```
 
-## Chạy bài lab
+---
 
-### Cách 1 — Chạy với IMDB thật
+# Part A — Core Lab: IMDB
+
+## Chạy mô hình chính
 
 ```bash
 python run_lab3.py \
@@ -151,13 +59,27 @@ python run_lab3.py \
   --use_wandb
 ```
 
-Khi chạy với IMDB:
+IMDB dùng split gốc; validation được tách từ train, test split gốc chỉ dùng cho đánh giá cuối.
 
-- `train` và `test` lấy từ split gốc của dataset;
-- `val` được tách ra từ `train` theo seed;
-- nếu truyền `--max_rows`, repo chỉ lấy **một phần nhỏ của split gốc** để test nhanh, thay vì trộn toàn bộ dataset rồi chia lại.
+Sinh viên cần thử **ít nhất 2 cấu hình**, có thể thay:
+- `max_len`
+- `hidden_dim`
+- `dropout`
+- `lr`
+- `batch_size`
+- `patience`
 
-### Cách 2 — Chạy smoke test với dữ liệu nhỏ
+## Nối với baseline Lab 2
+
+```bash
+python run_lab3.py \
+  --dataset imdb \
+  --baseline_metrics_path /path/to/lab2/outputs/imdb_baseline/metrics/metrics_summary.json
+```
+
+Repo sẽ tạo `outputs/metrics/baseline_vs_rnn.csv`.
+
+## Smoke test cục bộ
 
 ```bash
 python run_lab3.py \
@@ -173,116 +95,129 @@ python run_lab3.py \
   --use_wandb
 ```
 
-## Cấu trúc repo
+---
+
+# Part B — VietNewsSense Sequence Transfer Check
+
+## Câu hỏi thực nghiệm
+
+> Khi chuyển từ tiếng Anh sang tin tức tiếng Việt, tokenization làm thay đổi dữ liệu đầu vào của RNN như thế nào?
+
+Trong phần này **không train thêm một RNN đầy đủ**. Sinh viên chỉ giữ:
+- cùng dataset;
+- cùng split;
+- cùng `vocab_size`;
+- cùng `max_len`;
+
+và thay đổi duy nhất cách tokenization:
+
+1. `whitespace`
+2. `underthesea`
+
+## Chạy transfer check
+
+Giả sử VietNewsSense có cột:
+- `content`: nội dung
+- `category`: nhãn chủ đề
+
+```bash
+python run_vietnews_sequence_audit.py \
+  --data_path data/raw/vietnewssense.csv \
+  --text_col content \
+  --label_col category \
+  --seed 42 \
+  --vocab_size 20000 \
+  --max_len 256 \
+  --modes whitespace underthesea \
+  --output_dir outputs/vietnews
+```
+
+## Các chỉ số cần so sánh
+
+- `vocab_size`
+- median sequence length
+- p95 sequence length
+- held-out `UNK rate`
+- `truncation rate`
+- `average padding ratio`
+
+Output:
 
 ```text
-csc4007_lab3_starter_aligned/
-├── .github/workflows/ci.yml
-├── data/
-│   └── raw/
-│       ├── README.md
-│       └── sample_imdb_tiny.csv
-├── notebooks/
-│   └── README.md
-├── outputs/
+outputs/vietnews/
+├── whitespace_sequence_audit.md
+├── underthesea_sequence_audit.md
+├── transfer_comparison.csv
+├── transfer_comparison.md
+└── token_examples.csv
+```
+
+### Không được kết luận
+
+Không dùng Part B để kết luận:
+- tokenizer nào “tốt hơn” chỉ từ sequence statistics;
+- tiếng Việt “khó hơn” tiếng Anh;
+- word segmentation luôn giúp RNN.
+
+Part B chỉ trả lời: **tokenization thay đổi hình dạng sequence đầu vào như thế nào và điều đó có thể ảnh hưởng RNN ra sao.**
+
+---
+
+# Output Part A
+
+Sau khi chạy `run_lab3.py`, repo sinh:
+
+- `outputs/logs/sequence_audit.md`
+- `outputs/metrics/epoch_history.csv`
+- `outputs/metrics/metrics_summary.json`
+- `outputs/metrics/metrics_summary.md`
+- `outputs/metrics/baseline_vs_rnn.csv`
+- `outputs/figures/loss_curve.png`
+- `outputs/figures/metric_curve.png`
+- `outputs/figures/confusion_matrix.png`
+- `outputs/error_analysis/error_analysis.csv`
+- `outputs/error_analysis/error_analysis_summary.md`
+- `outputs/models/best_model.pt`
+- `outputs/predictions/test_predictions.csv`
+- `outputs/logs/run_summary.json`
+
+# Yêu cầu nộp bài
+
+Sinh viên cần:
+
+1. Chạy Embedding + RNN trên IMDB.
+2. Log ít nhất một run hoàn chỉnh bằng W&B.
+3. Thử ít nhất 2 cấu hình.
+4. So sánh baseline Lab 2 với RNN Lab 3.
+5. Phân tích ít nhất 10 mẫu sai IMDB.
+6. Chạy VietNewsSense Sequence Transfer Check với `whitespace` và `underthesea`.
+7. Hoàn thành `reports/analysis_report.md`.
+
+# Cấu trúc chính
+
+```text
+csc4007_lab3_starter_kit/
+├── .github/workflows/
+├── data/raw/
 ├── reports/
 │   ├── analysis_report.md
 │   └── rubric.md
-├── requirements.txt
 ├── run_lab3.py
+├── run_vietnews_sequence_audit.py
+├── requirements.txt
 └── src/
     ├── data.py
-    ├── error_analysis.py
-    ├── evaluate.py
     ├── model.py
     ├── sequence_audit.py
-    ├── train.py
-    ├── utils.py
-    └── wandb_utils.py
+    ├── vietnamese_text.py
+    └── ...
 ```
 
-## Ý nghĩa các output
+## CI
 
-Sau khi chạy xong, repo sẽ sinh ra các file quan trọng sau:
+Repo kiểm tra:
+- đường chạy IMDB/RNN;
+- smoke test local IMDB;
+- VietNewsSense sequence audit bằng dữ liệu Việt nhỏ tổng hợp.
 
-- `outputs/logs/sequence_audit.md`: thống kê cơ bản về độ dài chuỗi, tỷ lệ cắt ngắn, phân bố nhãn;
-- `outputs/metrics/epoch_history.csv`: metric theo từng epoch;
-- `outputs/metrics/metrics_summary.md`: kết quả tổng hợp của mô hình tốt nhất;
-- `outputs/metrics/baseline_vs_rnn.csv`: bảng so sánh baseline Lab 2 với RNN Lab 3;
-- `outputs/figures/loss_curve.png`: đường train/validation loss;
-- `outputs/figures/metric_curve.png`: đường accuracy/F1 theo epoch;
-- `outputs/figures/confusion_matrix.png`: ma trận nhầm lẫn trên test set;
-- `outputs/error_analysis/error_analysis.csv`: danh sách các mẫu sai để phân tích;
-- `outputs/error_analysis/error_analysis_summary.md`: tóm tắt nhóm lỗi thường gặp;
-- `outputs/models/best_model.pt`: trọng số mô hình tốt nhất;
-- `outputs/predictions/test_predictions.csv`: dự đoán trên test set;
-- `outputs/logs/run_summary.json`: tóm tắt thông số và đường dẫn output của lần chạy.
-
-## Yêu cầu sinh viên phải thực hiện
-
-1. Chạy thành công mô hình **Embedding + RNN** trên IMDB.
-2. Sử dụng **W&B** để log ít nhất một lần chạy hoàn chỉnh.
-3. Thử **ít nhất 2 cấu hình khác nhau**. Có thể thay đổi một hoặc nhiều tham số sau:
-   - `max_len`
-   - `hidden_dim`
-   - `dropout`
-   - `lr`
-   - `batch_size`
-   - `early stopping patience`
-4. Hoàn thành so sánh giữa **baseline ML của Lab 2** và **RNN của Lab 3**.
-5. Phân tích **ít nhất 10 mẫu sai** trong file error analysis.
-6. Điền đầy đủ `reports/analysis_report.md`.
-
-## Cách nối với kết quả Lab 2
-
-Nếu sinh viên đã có file `metrics_summary.json` của Lab 2, có thể truyền vào như sau:
-
-```bash
-python run_lab3.py --baseline_metrics_path /path/to/lab2/outputs/metrics/metrics_summary.json
-```
-
-Khi đó repo sẽ tạo bảng `baseline_vs_rnn.csv` để phục vụ phần so sánh trong báo cáo.
-
-## Một số lỗi thường gặp
-
-Các lỗi phổ biến trong bài lab này gồm:
-
-- padding hoặc sequence length chưa hợp lý;
-- tensor sai kích thước batch/sequence;
-- quên cố định seed;
-- chọn mô hình quá lớn khiến overfit;
-- quên early stopping;
-- chỉ nhìn accuracy mà bỏ qua macro-F1 và confusion matrix;
-- chạy W&B nhưng không ghi lại tên run hoặc không so sánh các run.
-
-## Checklist nộp bài
-
-Sinh viên cần nộp repo GitHub cá nhân, trong đó có tối thiểu:
-
-- mã nguồn đã hoàn thiện;
-- `reports/analysis_report.md` đã điền nội dung;
-- các file output cần thiết trong `outputs/`;
-- ảnh learning curves;
-- confusion matrix;
-- bảng so sánh baseline vs RNN;
-- file error analysis;
-- nếu dùng W&B online: ghi rõ link dashboard hoặc tên project/run trong báo cáo.
-
-## Rubric chấm bài
-
-Rubric chi tiết nằm tại:
-
-- `reports/rubric.md`
-
-- `reports/rubric.md`
-
-## CI dùng để làm gì?
-
-Repo hiện có **2 workflow**:
-
-- `lab3-ci`: smoke test nhanh với `sample_imdb_tiny.csv`;
-- `lab3-imdb-ci`: smoke test riêng cho đường chạy `--dataset imdb` với `--max_rows 200`.
-
-Workflow IMDB giúp kiểm tra rằng repo GitHub vẫn chạy được với dữ liệu thật, trong khi workflow local giúp kiểm tra nhanh hơn ở mỗi lần sửa code. Cả hai workflow đều bật W&B ở `offline` mode và kiểm tra các artefact bắt buộc sau khi chạy xong.
-
-CI giúp sinh viên biết repo có chạy được hay không, nhưng **không thay thế cho việc hoàn thành đầy đủ phân tích học thuật trong báo cáo**.
+CI chỉ kiểm tra code/artefact, không thay thế phân tích học thuật.
