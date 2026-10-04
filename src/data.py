@@ -73,14 +73,14 @@ def load_imdb_frames(max_rows: int | None) -> tuple[pd.DataFrame, pd.DataFrame]:
     from datasets import load_dataset
 
     if max_rows is None:
-        train_df = load_dataset("imdb", split="train").to_pandas()
-        test_df = load_dataset("imdb", split="test").to_pandas()
+        train_df = load_dataset("stanfordnlp/imdb", split="train").to_pandas()
+        test_df = load_dataset("stanfordnlp/imdb", split="test").to_pandas()
     else:
         total = max(int(max_rows), 50)
         test_n = max(20, round(total * 0.2))
         train_source_n = max(30, total - test_n)
-        train_df = load_dataset("imdb", split=f"train[:{train_source_n}]").to_pandas()
-        test_df = load_dataset("imdb", split=f"test[:{test_n}]").to_pandas()
+        train_df = load_dataset("stanfordnlp/imdb", split=f"train[:{train_source_n}]").to_pandas()
+        test_df = load_dataset("stanfordnlp/imdb", split=f"test[:{test_n}]").to_pandas()
 
     train_df = train_df.rename(columns={"text": "text", "label": "label"})[["text", "label"]]
     test_df = test_df.rename(columns={"text": "text", "label": "label"})[["text", "label"]]

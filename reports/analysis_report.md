@@ -1,4 +1,5 @@
-# CSC4007 — Lab 3 Analysis Report (RNN + W&B)
+# CSC4007 — Lab 3 Analysis Report
+## RNN + W&B + VietNewsSense Sequence Transfer Check
 
 ## 1. Thông tin sinh viên
 - Họ và tên:
@@ -9,27 +10,28 @@
 - Tên run tốt nhất:
 
 ## 2. Mục tiêu thí nghiệm
-Viết 3–5 dòng trả lời các câu hỏi sau:
+Viết 3–5 dòng:
 - Lab 3 khác Lab 2 ở điểm nào?
-- Vì sao cần chuyển từ BoW/TF-IDF sang mô hình chuỗi?
-- Bạn kỳ vọng RNN cải thiện điều gì trên IMDB?
+- Vì sao chuyển từ BoW/TF-IDF sang token sequence?
+- RNN có thể khai thác điều gì mà baseline tuyến tính không biểu diễn trực tiếp?
+
+# PART A — IMDB CORE LAB
 
 ## 3. Sequence audit
-Dựa trên `outputs/logs/sequence_audit.md`, nêu ít nhất 3 nhận xét có số liệu hoặc bằng chứng cụ thể.
+Dựa trên `outputs/logs/sequence_audit.md`, nêu ít nhất 3 nhận xét có số liệu.
 
 1.
 2.
 3.
 
 Gợi ý:
-- Review có độ dài phân bố như thế nào?
-- `max_len` bạn chọn có hợp lý không?
-- Có nhiều review bị cắt ngắn không?
-- Điều này ảnh hưởng thế nào đến bài toán sentiment classification?
+- median/p95 length?
+- `max_len` hợp lý không?
+- truncation rate?
+- padding ratio?
+- UNK rate?
 
 ## 4. Thiết lập mô hình và huấn luyện
-Ghi lại cấu hình tốt nhất của bạn:
-
 - vocab_size:
 - max_len:
 - embed_dim:
@@ -42,67 +44,106 @@ Ghi lại cấu hình tốt nhất của bạn:
 - early stopping patience:
 - wandb_mode:
 
-Giải thích ngắn gọn vì sao bạn chọn cấu hình này.
+Giải thích vì sao chọn cấu hình này.
 
 ## 5. Baseline ML vs RNN
-Điền bảng dựa trên `outputs/metrics/baseline_vs_rnn.csv`.
 
-| Mô hình | Accuracy | Macro-F1 | Ghi chú |
-|---|---:|---:|---|
-| Baseline ML (Lab 2) |  |  |  |
-| RNN (Lab 3) |  |  |  |
+| Mô hình | Representation | Accuracy | Macro-F1 | Ghi chú |
+|---|---|---:|---:|---|
+| Baseline ML — Lab 2 | BoW/TF-IDF |  |  |  |
+| RNN — Lab 3 | token sequence + embedding |  |  |  |
 
-### Nhận xét (5–7 dòng)
 Trả lời:
-- RNN có tốt hơn baseline hay không?
-- Nếu tốt hơn, cải thiện đó có đáng kể không?
+- RNN có tốt hơn baseline không?
+- Nếu tốt hơn, chênh lệch có đáng kể không?
 - Nếu chưa tốt hơn, nguyên nhân hợp lý là gì?
-- Vai trò của thứ tự từ trong bài toán IMDB thể hiện ra sao?
+- Vai trò của word order thể hiện ở đâu?
 
 ## 6. Learning curves và W&B
-Đính kèm hoặc chèn:
-- `outputs/figures/loss_curve.png`
-- `outputs/figures/metric_curve.png`
-- hoặc ảnh chụp dashboard W&B
+Đính kèm:
+- `loss_curve.png`
+- `metric_curve.png`
+- hoặc ảnh W&B
 
-Trả lời ngắn các câu hỏi sau:
-- Epoch tốt nhất là epoch nào?
-- Có dấu hiệu overfitting không?
-- W&B giúp bạn quan sát điều gì rõ hơn so với chỉ đọc terminal log?
-- Bạn có so sánh ít nhất 2 run không? Nếu có, run nào tốt hơn và vì sao?
+Trả lời:
+- Epoch tốt nhất?
+- Có overfitting không?
+- Run nào tốt hơn?
+- W&B giúp quan sát điều gì?
 
-## 7. Error analysis (ít nhất 10 mẫu sai)
-Dựa trên `outputs/error_analysis/error_analysis.csv`, chọn và phân tích ít nhất 10 mẫu dự đoán sai.
+## 7. Error analysis — ít nhất 10 lỗi IMDB
 
-### Gợi ý nhóm lỗi
-- phủ định;
-- mixed sentiment;
-- review dài;
-- sarcasm/irony;
-- mô hình rất tự tin nhưng vẫn sai;
-- câu có nhiều chuyển ý hoặc phụ thuộc ngữ cảnh xa.
+| ID | True | Pred | Nhóm lỗi | Vì sao sai? | Hướng cải thiện |
+|---|---|---|---|---|---|
+|  |  |  |  |  |  |
 
-### Tổng hợp lỗi
-1.
-2.
-3.
+Gợi ý:
+- negation
+- mixed sentiment
+- long review
+- sarcasm/irony
+- confident but wrong
+- long-range context
 
-### Ví dụ bảng ghi nhận lỗi
-| ID | True label | Pred label | Vì sao sai? | Hướng cải thiện |
-|---|---|---|---|---|
-| 1 |  |  |  |  |
-| 2 |  |  |  |  |
-| 3 |  |  |  |  |
+# PART B — VIETNEWSSENSE SEQUENCE TRANSFER CHECK
 
-## 8. Bài học rút ra
-Viết 5–7 dòng về những điều bạn học được khi chuyển từ TF-IDF/LogReg sang Embedding + RNN.
+## 8. Thiết lập transfer check
 
-Có thể đề cập:
-- ưu điểm và hạn chế của RNN;
-- vai trò của sequence length;
-- tầm quan trọng của validation set;
-- ý nghĩa của learning curves;
-- lợi ích của W&B trong việc theo dõi thí nghiệm.
+- data_path:
+- text_col:
+- label_col:
+- seed:
+- vocab_size:
+- max_len:
+- modes: `whitespace`, `underthesea`
 
-## 9. Tự đánh giá theo rubric
-Sinh viên tự chấm sơ bộ theo `reports/rubric.md` trước khi nộp bài.
+Xác nhận: hai tokenizer sử dụng cùng split, vocab limit và max_len.
+
+## 9. Kết quả sequence transfer
+
+Điền từ `outputs/vietnews/transfer_comparison.csv`.
+
+| Tokenizer | Vocab size | Median len | P95 len | UNK rate | Truncation rate | Padding ratio |
+|---|---:|---:|---:|---:|---:|---:|
+| whitespace |  |  |  |  |  |  |
+| underthesea |  |  |  |  |  |  |
+
+### Nhận xét
+1. Vocabulary thay đổi như thế nào?
+2. Sequence length thay đổi như thế nào?
+3. Với cùng `max_len`, truncation/padding thay đổi ra sao?
+4. UNK rate held-out thay đổi ra sao?
+
+## 10. Token example
+
+Chọn ít nhất 2 ví dụ từ `token_examples.csv`.
+
+### Ví dụ 1
+- Raw text:
+- Whitespace tokens:
+- Underthesea tokens:
+- Nhận xét:
+
+### Ví dụ 2
+- Raw text:
+- Whitespace tokens:
+- Underthesea tokens:
+- Nhận xét:
+
+## 11. Vietnamese Transfer Reflection
+
+Trả lời 5–7 dòng:
+
+> Những thay đổi về vocabulary, sequence length, UNK, truncation và padding có thể ảnh hưởng Embedding + RNN như thế nào?
+
+Không được kết luận tokenizer nào tạo accuracy cao hơn vì Part B không train hai RNN để so accuracy.
+
+## 12. Bài học rút ra
+
+Viết 5–7 dòng:
+- ưu/nhược điểm RNN;
+- sequence length;
+- validation/early stopping;
+- learning curves;
+- vì sao tokenization là một phần của thiết kế mô hình chuỗi;
+- điểm muốn kiểm chứng tiếp ở Lab 4 LSTM.
